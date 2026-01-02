@@ -41,9 +41,6 @@ class LogIngestor:
         Standard Schema: timestamp, src_ip, dst_ip, device_type, protocol, action, dns_qname
         """
         try:
-            # Flexible parsing capable of handling typical Fortigate/Generic JSON structure
-            
-            # Timestamp parsing
             ts_str = raw_log.get('timestamp') or raw_log.get('date') + " " + raw_log.get('time', '00:00:00')
             try:
                 timestamp = parser.parse(ts_str)
