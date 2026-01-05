@@ -24,13 +24,16 @@ def ingest_direct(file_path):
         try:
             # 1. Store Normalized Log
             sql_log = """INSERT INTO logs 
-                (timestamp, src_ip, dst_ip, device_type, protocol, action, policyid, sentbyte, rcvdbyte, user, raw_log) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+                (timestamp, src_ip, dst_ip, src_port, dst_port, service, device_type, protocol, action, policyid, sentbyte, rcvdbyte, user, raw_log) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
             
             cursor.execute(sql_log, (
                 log.get('timestamp'), 
                 log.get('src_ip'), 
-                log.get('dst_ip'), 
+                log.get('dst_ip'),
+                log.get('srcport', 0),
+                log.get('dstport', 0),
+                log.get('service', 'N/A'),
                 log.get('device_type'), 
                 log.get('protocol'), 
                 log.get('action'),

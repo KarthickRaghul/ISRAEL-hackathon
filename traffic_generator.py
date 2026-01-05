@@ -61,6 +61,12 @@ class TrafficGenerator:
             for _ in range(burst_size):
                 svc = random.choices(service_choices, weights=service_weights, k=1)[0]
                 
+                # Device Type Selection
+                if hasattr(self, 'device_categories') and self.device_categories:
+                    dev_type = random.choice(self.device_categories)
+                else:
+                    dev_type = "workstation"
+
                 src_ip = self._get_random_internal_ip()
                 dst_ip = self._get_random_external_ip()
                 
@@ -89,7 +95,7 @@ class TrafficGenerator:
                     "rcvdbyte": rcvd,
                     "duration": random.randint(1, 60),
                     "user": f"user-{random.randint(1, 50)}",
-                    "device_type": "workstation",
+                    "device_type": dev_type,
                     "level": "notice",
                     "logid": "0000000013",
                     "srccountry": "Reserved",
@@ -100,10 +106,11 @@ class TrafficGenerator:
         print(f"[-] Generated {len(logs)} baseline events.")
         return logs
 
-    def run(self, counts=None):
+    def run(self, counts=None, device_categories=None):
         """
         Runs the simulation. 
         'counts' can be a dict specifying exactly how many of each to generate.
+        'device_categories' is a list of allowed device types.
         """
         now = datetime.now()
         # We align the simulation to END at 'now'
@@ -112,6 +119,11 @@ class TrafficGenerator:
         
         all_logs = []
         
+        if device_categories:
+            self.device_categories = device_categories
+        else:
+            self.device_categories = []
+            
         if counts:
             # GRANULAR MODE
             if counts.get('baseline', 0) > 0:
@@ -140,7 +152,7 @@ class TrafficGenerator:
                         "rcvdbyte": random.randint(100, 50000),
                         "duration": random.randint(1, 60),
                         "user": f"user-{random.randint(1, 50)}",
-                        "device_type": "workstation",
+                        "device_type": random.choice(self.device_categories) if self.device_categories else "workstation",
                         "level": "notice",
                         "logid": "0000000013"
                     }
@@ -198,6 +210,7 @@ if __name__ == "__main__":
     parser.add_argument("--ssh", type=int, default=0, help="Number of SSH attack logs to generate")
     parser.add_argument("--dns", type=int, default=0, help="Number of DNS attack logs to generate")
     parser.add_argument("--beacon", type=int, default=0, help="Number of Beacon logs to generate")
+    parser.add_argument("--categories", nargs="+", help="List of device categories (e.g. Router Printer)")
     args = parser.parse_args()
     
     gen = TrafficGenerator(args.config)
@@ -210,6 +223,6 @@ if __name__ == "__main__":
             "dns": args.dns,
             "beacon": args.beacon
         }
-        gen.run(granular_counts)
+        gen.run(granular_counts, device_categories=args.categories)
     else:
-        gen.run()
+        gen.run(device_categories=args.categories)
