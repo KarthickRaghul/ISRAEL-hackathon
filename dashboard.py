@@ -427,7 +427,7 @@ def show_log_details_dialog(log_record):
     # Compact Header
     st.markdown(f"**Timestamp:** {log_record['timestamp']}")
     
-4    # Compact Columns using HTML for tighter control unlike st.metric
+    # Compact Columns using HTML for tighter control unlike st.metric
     # Dynamic Header Fields Logic
     # Slot 1: Source
     if log_record.get('src_ip'):
