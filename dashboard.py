@@ -427,20 +427,60 @@ def show_log_details_dialog(log_record):
     # Compact Header
     st.markdown(f"**Timestamp:** {log_record['timestamp']}")
     
+4    # Compact Columns using HTML for tighter control unlike st.metric
+    # Dynamic Header Fields Logic
+    # Slot 1: Source
+    if log_record.get('src_ip'):
+        l1, v1 = "Source IP", log_record['src_ip']
+    elif log_record.get('host'):
+        l1, v1 = "Host", log_record['host']
+    else:
+        l1, v1 = "Source", "N/A"
+
+    # Slot 2: Destination / Target
+    if log_record.get('dst_ip'):
+        l2, v2 = "Destination IP", log_record['dst_ip']
+    elif log_record.get('process_name'):
+        l2, v2 = "Process", log_record['process_name']
+    elif log_record.get('url'):
+         l2, v2 = "URL", log_record['url']
+    else:
+        l2, v2 = "Destination", "N/A"
+
+    # Slot 3: Action / Status / Severity
+    if log_record.get('action'):
+        l3, v3 = "Action", log_record['action'].upper()
+        color = "#cf222e" if log_record['action'] == 'deny' else "#1a7f37"
+    elif log_record.get('severity'):
+        sev = log_record['severity'].upper()
+        l3, v3 = "Severity", sev
+        # Map severity to colors
+        if sev in ['CRITICAL', 'HIGH', 'ERROR']: color = "#cf222e"
+        elif sev in ['WARNING', 'MEDIUM']: color = "#9a6700" 
+        elif sev in ['INFO', 'LOW']: color = "#0969da"
+        else: color = "#57606a"
+    elif log_record.get('status_code'):
+         l3, v3 = "Status", str(log_record['status_code'])
+         color = "#0969da"
+    else:
+        l3, v3, color = "Status", "N/A", "#57606a"
+
     # Compact Columns using HTML for tighter control unlike st.metric
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f"<div style='font-size:12px; color:#57606a;'>Source IP</div><div style='font-size:16px; font-weight:500;'>{log_record['src_ip']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size:12px; color:#57606a;'>{l1}</div><div style='font-size:16px; font-weight:500;'>{v1}</div>", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"<div style='font-size:12px; color:#57606a;'>Destination IP</div><div style='font-size:16px; font-weight:500;'>{log_record['dst_ip']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size:12px; color:#57606a;'>{l2}</div><div style='font-size:16px; font-weight:500;'>{v2}</div>", unsafe_allow_html=True)
     with col3:
-        act_color = "#cf222e" if log_record['action'] == 'deny' else "#1a7f37"
-        st.markdown(f"<div style='font-size:12px; color:#57606a;'>Action</div><div style='font-size:16px; font-weight:600; color:{act_color};'>{log_record['action'].upper()}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size:12px; color:#57606a;'>{l3}</div><div style='font-size:16px; font-weight:600; color:{color};'>{v3}</div>", unsafe_allow_html=True)
     
     st.divider()
     
     st.markdown("#### Full Log Data")
-    st.json(log_record.to_dict())
+    # Filter out null values
+    full_data = log_record.to_dict()
+    clean_data = {k: v for k, v in full_data.items() if v is not None and not pd.isna(v)}
+    st.json(clean_data)
     
     if log_record.get('raw_log'):
         st.markdown("#### Raw Log")
@@ -476,61 +516,152 @@ df_logs = get_data()
 
 
 # --- 7. LOGS TABLE SECTION ---
+st.markdown('<div class="custom-card">', unsafe_allow_html=True)
 
-
-# Filters Toolbar
-f1, f2, f3, f4, f5 = st.columns([1, 1, 1, 1, 0.5])
-with f1:
-    st.selectbox("Time Period", ["Last 1 hour", "Last 24 hours"], label_visibility="collapsed")
-with f2:
-    st.selectbox("Device/IP", ["All Devices"], label_visibility="collapsed")
-with f3:
-    st.selectbox("Device Type", ["All Types"] + list(dev_cats.keys()), label_visibility="collapsed")
-with f4:
-    st.selectbox("Attack Type", ["All Attacks"], label_visibility="collapsed")
-with f5:
-    st.selectbox("Action", ["Any"], label_visibility="collapsed")
-
-# 7.2 Legend
 if not df_logs.empty:
-    # 7.1 Data Preparation
+    # 7.1 Data Preparation (Computed Columns)
     display_df = df_logs.copy()
-    display_df['Device Type'] = display_df['device_type'] if 'device_type' in display_df.columns else 'Unknown'
-    display_df['Attack Type'] = display_df.apply(lambda x: "SSH Brute Force" if x['dst_port'] == 22 and x['action'] == 'deny' else ("DNS Tunneling" if x['dst_port'] == 53 and x['sentbyte'] > 1000 else "Normal Traffic"), axis=1)
+    
+    # Device Type Clean up
+    if 'device_type' in display_df.columns:
+        display_df['Device Type'] = display_df['device_type'].fillna('Unknown')
+    else:
+        display_df['Device Type'] = 'Unknown'
 
-    st.markdown("""
-    <div style="display: flex; gap: 15px; margin-bottom: 10px; font-size: 12px; font-weight: 600;">
-        <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#ffebe9; border:1px solid #cf222e; margin-right:5px;"></span> SSH Brute Force</div>
-        <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#fbefff; border:1px solid #8250df; margin-right:5px;"></span> DNS Tunneling</div>
-        <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#ffffff; border:1px solid #d0d7de; margin-right:5px;"></span> Normal Traffic</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Attack Type Calculation
+    def get_attack_type(row):
+        # Check standard attack signatures
+        if row.get('dst_port') == 22 and row.get('action') == 'deny':
+            return "SSH Brute Force"
+        if row.get('dst_port') == 53 and row.get('sentbyte', 0) > 1000:
+            return "DNS Tunneling"
+        if row.get('action') == 'alert':
+            return "Security Alert"
+        # Fallback or Normal
+        return "Normal Traffic"
 
-    # 7.3 Styling Function
+    display_df['Attack Type'] = display_df.apply(get_attack_type, axis=1)
+
+    # 7.2 Dynamic Filter Lists
+    # Time Period
+    time_opts = ["Last 1 hour", "Last 24 hours", "All Time"]
+    
+    # Device/IP (Source)
+    # Combine src_ip and host if available
+    sources = set()
+    if 'src_ip' in display_df.columns:
+        sources.update(display_df['src_ip'].dropna().unique())
+    if 'host' in display_df.columns:
+        sources.update(display_df['host'].dropna().unique())
+    source_opts = ["All Devices"] + sorted(list(sources))
+
+    # Attack Type
+    attack_opts = ["All Attacks"] + sorted(display_df['Attack Type'].unique().tolist())
+
+    # 7.3 Filter Toolbar UI
+    f1, f2, f3 = st.columns([1, 1, 1])
+    with f1:
+        sel_time = st.selectbox("Time Period", time_opts, label_visibility="collapsed")
+    with f2:
+        sel_source = st.selectbox("Device/IP", source_opts, label_visibility="collapsed")
+    with f3:
+        sel_attack = st.selectbox("Attack Type", attack_opts, label_visibility="collapsed")
+
+    # 7.4 Apply Filters
+    filtered_df = display_df.copy()
+
+    # Filter: Source
+    if sel_source != "All Devices":
+        # Match against src_ip OR host
+        cond = pd.Series([False] * len(filtered_df), index=filtered_df.index)
+        if 'src_ip' in filtered_df.columns:
+            cond |= (filtered_df['src_ip'] == sel_source)
+        if 'host' in filtered_df.columns:
+            cond |= (filtered_df['host'] == sel_source)
+        filtered_df = filtered_df[cond]
+
+    # Filter: Attack Type
+    if sel_attack != "All Attacks":
+        filtered_df = filtered_df[filtered_df['Attack Type'] == sel_attack]
+
+    # Filter: Time (Simplified logic)
+    if sel_time == "Last 1 hour":
+        cutoff = datetime.now() - timedelta(hours=1)
+        filtered_df = filtered_df[filtered_df['timestamp'] >= cutoff]
+    elif sel_time == "Last 24 hours":
+        cutoff = datetime.now() - timedelta(hours=24)
+        filtered_df = filtered_df[filtered_df['timestamp'] >= cutoff]
+
+    st.markdown("---")
+
+    # 7.5 Legend & Download
+    c_leg, c_dl = st.columns([5, 1.5])
+    with c_leg:
+        st.markdown("""
+        <div style="display: flex; gap: 15px; margin-bottom: 10px; font-size: 12px; font-weight: 600;">
+            <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#ffebe9; border:1px solid #cf222e; margin-right:5px;"></span> SSH Brute Force</div>
+            <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#fbefff; border:1px solid #8250df; margin-right:5px;"></span> DNS Tunneling</div>
+            <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#ffffff; border:1px solid #d0d7de; margin-right:5px;"></span> Normal Traffic</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_dl:
+        # Combined Download Dropdown
+        with st.popover("Download Logs", use_container_width=True):
+            # JSON Logic
+            json_str = filtered_df.to_json(orient="records", date_format="iso", indent=2)
+            st.download_button("Download JSON", data=json_str, file_name="logs_export.json", mime="application/json", use_container_width=True)
+            
+            # CSV/Excel Logic (Streamlit text download for CSV is safer)
+            csv_str = filtered_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download CSV", data=csv_str, file_name="logs_export.csv", mime="text/csv", use_container_width=True)
+            
+            # Normalized Detection Format (key:value)
+            def normalize_rows(df):
+                lines = []
+                for _, row in df.iterrows():
+                    # Filter out nulls and format as key:value
+                    items = [f"{k}:{v}" for k, v in row.to_dict().items() if pd.notna(v) and v != ""]
+                    lines.append(" ".join(items))
+                return "\n".join(lines)
+            
+            norm_str = normalize_rows(filtered_df)
+            st.download_button("Download Normalized (TXT)", data=norm_str, file_name="logs_normalized.txt", mime="text/plain", use_container_width=True)
+
+    # 7.6 Styling Function
     def highlight_attacks(row):
         atk = row['Attack Type']
         if "SSH" in atk:
             return ['background-color: #ffebe9; color: #cf222e'] * len(row)
         elif "DNS" in atk:
             return ['background-color: #fbefff; color: #8250df'] * len(row)
+        elif "Alert" in atk:
+            return ['background-color: #fff8c5; color: #9a6700'] * len(row)
         return [''] * len(row)
 
-    # 7.4 Pagination Logic
+    # 7.7 Pagination Logic
     if 'page_number' not in st.session_state:
         st.session_state.page_number = 1
     
-    page_size = 15
-    total_pages = max(1, (len(display_df) + page_size - 1) // page_size)
+    # Rows Per Page Selector
+    # Reset page if out of bounds (e.g. after filtering)
+    c_p1, c_p2, c_p3, c_p4 = st.columns([2, 5, 2, 2])
+    with c_p4:
+         page_size = st.selectbox("Rows per page", [15, 30, 50, 100], index=0, label_visibility="collapsed")
     
-    c_pag1, c_pag2, c_pag3 = st.columns([2, 6, 2])
-    with c_pag1:
+    total_records = len(filtered_df)
+    total_pages = max(1, (total_records + page_size - 1) // page_size)
+    
+    if st.session_state.page_number > total_pages:
+        st.session_state.page_number = 1
+    
+    with c_p1:
         if st.button("Previous"):
             if st.session_state.page_number > 1:
                 st.session_state.page_number -= 1
                 st.rerun()
-    with c_pag2:
-        st.write(f"Page {st.session_state.page_number} of {total_pages}")
-    with c_pag3:
+    with c_p2:
+        st.write(f"Page {st.session_state.page_number} of {total_pages} ({total_records} logs)")
+    with c_p3:
         if st.button("Next"):
             if st.session_state.page_number < total_pages:
                 st.session_state.page_number += 1
@@ -539,21 +670,18 @@ if not df_logs.empty:
     # Create the dataframe for the current page
     page_start = (st.session_state.page_number - 1) * page_size
     page_end = page_start + page_size
-    page_df = display_df.iloc[page_start:page_end]
+    page_df = filtered_df.iloc[page_start:page_end]
 
     # Select columns for display
-    # DYNAMIC COLUMN VISIBILITY: Show columns that have at least one non-null value (ignoring 'id', 'raw_log', etc if wanted)
-    # But usually we want specific columns first.
-    
     # 1. Base Columns (always first)
-    base_cols = ['timestamp', 'log_type', 'src_ip', 'user']
+    base_cols = ['timestamp', 'log_type', 'src_ip', 'user', 'Attack Type', 'action']
     
     # 2. Get all other columns that are not null in this page (or whole set?)
     # Optimization: Check current page for non-nulls
     non_null_cols = page_df.columns[page_df.notna().any()].tolist()
     
     # 3. Filter out internals
-    exclude = ['id', 'raw_log', 'created_at', 'logid', 'qname', 'msg', 'srccountry', 'dstcountry'] + base_cols
+    exclude = ['id', 'raw_log', 'created_at', 'logid', 'qname', 'msg', 'srccountry', 'dstcountry', 'Device Type'] + base_cols
     dynamic_cols = [c for c in non_null_cols if c not in exclude]
     
     # 4. Final View List
@@ -580,14 +708,8 @@ if not df_logs.empty:
         selected_log = page_df.iloc[selected_index]
         show_log_details_dialog(selected_log)
 
-    # Footer Actions
+    # Footer Actions (Removed)
     st.markdown("---")
-    c_foot1, c_foot2 = st.columns([6, 1])
-    with c_foot2:
-        st.markdown('<div style="display:flex; gap:10px;">', unsafe_allow_html=True)
-        st.button("Download XLSX", key="dl_xlsx")
-        st.button("JSON", key="dl_json")
-        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.info("No logs found. Generate traffic to see data.")

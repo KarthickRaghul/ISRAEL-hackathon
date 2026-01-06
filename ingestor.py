@@ -63,7 +63,13 @@ class LogIngestor:
             normalized['timestamp'] = timestamp
             
             # Map legacy keys if present (for real logs)
-            if 'srcip' in raw_log and 'src_ip' not in raw_log: normalized['src_ip'] = raw_log['srcip']
+            # Map legacy keys if present (for real logs)
+            if 'srcip' in raw_log:
+                if 'src_ip' not in raw_log:
+                    normalized['src_ip'] = raw_log['srcip']
+            else:
+                pass 
+                # print(f"DEBUG: 'srcip' not found in log keys: {list(raw_log.keys())}")
             if 'dstip' in raw_log and 'dst_ip' not in raw_log: normalized['dst_ip'] = raw_log['dstip']
             if 'srcport' in raw_log and 'src_port' not in raw_log: normalized['src_port'] = raw_log['srcport']
             if 'dstport' in raw_log and 'dst_port' not in raw_log: normalized['dst_port'] = raw_log['dstport']
