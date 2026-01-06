@@ -494,7 +494,8 @@ def get_data():
     try:
         # Fetch detailed logs
         print("DEBUG: Fetching data from DB...")
-        df = pd.read_sql("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 1000", conn)
+        # Increased limit to match max slider capability (100k)
+        df = pd.read_sql("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 100000", conn)
         print(f"DEBUG: Data fetched. Shape: {df.shape}")
         if not df.empty:
             print(f"DEBUG: Columns: {df.columns.tolist()}")
