@@ -98,7 +98,8 @@ class PatternManager:
                 "user_agent": "Mozilla/5.0",
                 "msg": f"Detected {pattern_name}: {payload}",
                 "level": "warning",
-                "action": "alert"
+                "action": "alert",
+                "alert_name": pattern_name
             }
             
             # Adjust for IOT

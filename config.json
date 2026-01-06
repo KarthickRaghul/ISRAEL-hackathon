@@ -51,6 +51,23 @@
       "interval_seconds": 300,
       "jitter_percent": 0.05,
       "target_ip": "198.51.100.55"
+    },
+    "api_abuse": {
+      "enabled": true,
+      "target_endpoints": [
+        "/api/v1/login",
+        "/api/v1/admin",
+        "/api/v1/users"
+      ],
+      "requests_per_minute": 60
+    },
+    "clickjacking": {
+      "enabled": true,
+      "target_url": "http://internal-site.com/login",
+      "suspicious_referers": [
+        "http://free-money.com",
+        "http://win-prizes.net"
+      ]
     }
   },
   "baseline": {

@@ -63,7 +63,14 @@ def fix_schema():
         ("client_ip", "VARCHAR(45)"),
         ("src_country", "VARCHAR(100)"),
         ("dst_country", "VARCHAR(100)"),
-        ("msg", "TEXT")
+        ("dst_country", "VARCHAR(100)"),
+        ("msg", "TEXT"),
+        ("ip_address", "VARCHAR(45)"),
+        ("region", "VARCHAR(100)"),
+        ("qname", "VARCHAR(255)"),
+        ("logid", "VARCHAR(50)"),
+        ("level", "VARCHAR(50)"),
+        ("duration", "INT")
     ]
     
     for col_name, col_def in columns_to_ensure:

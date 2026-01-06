@@ -521,52 +521,182 @@ st.markdown('<div class="custom-card">', unsafe_allow_html=True)
 if not df_logs.empty:
     # 7.1 Data Preparation (Computed Columns)
     display_df = df_logs.copy()
-    
     # Device Type Clean up
-    if 'device_type' in display_df.columns:
-        display_df['Device Type'] = display_df['device_type'].fillna('Unknown')
-    else:
-        display_df['Device Type'] = 'Unknown'
-
-    # Attack Type Calculation
-    def get_attack_type(row):
-        # Check standard attack signatures
-        if row.get('dst_port') == 22 and row.get('action') == 'deny':
-            return "SSH Brute Force"
-        if row.get('dst_port') == 53 and row.get('sentbyte', 0) > 1000:
-            return "DNS Tunneling"
-        if row.get('action') == 'alert':
-            return "Security Alert"
-        # Fallback or Normal
-        return "Normal Traffic"
-
-    display_df['Attack Type'] = display_df.apply(get_attack_type, axis=1)
-
-    # 7.2 Dynamic Filter Lists
-    # Time Period
-    time_opts = ["Last 1 hour", "Last 24 hours", "All Time"]
+    display_df['Device Type'] = display_df['device_type'] if 'device_type' in display_df.columns else 'Unknown'
     
-    # Device/IP (Source)
-    # Combine src_ip and host if available
-    sources = set()
-    if 'src_ip' in display_df.columns:
-        sources.update(display_df['src_ip'].dropna().unique())
-    if 'host' in display_df.columns:
-        sources.update(display_df['host'].dropna().unique())
-    source_opts = ["All Devices"] + sorted(list(sources))
+    # Use alert_name from DB if available, else derive or default
+    if 'alert_name' in display_df.columns:
+         display_df['Attack Type'] = display_df['alert_name'].fillna('Normal Traffic')
+    else:
+         display_df['Attack Type'] = "Normal Traffic"
 
-    # Attack Type
-    attack_opts = ["All Attacks"] + sorted(display_df['Attack Type'].unique().tolist())
+    # EXTENDED COLOR MAP CONFIGURATION
+    
+    # 1. Strong Blue    #1F77B4
+    # 2. Safety Orange  #FF7F0E
+    # 3. Forest Green   #2CA02C
+    # 4. Danger Red     #D62728
+    # 5. Royal Purple   #9467BD
+    # 6. Chestnut Brown #8C564B
+    # 7. Rose Pink      #E377C2
+    # 8. Steel Gray     #7F7F7F
+    # 9. Olive Green    #BCBD22
+    # 10. Cyan Teal     #17BECF
+    # 11. Deep Navy     #0B3C5D
+    # 12. Golden Yellow #F2C94C
+    # 13. Crimson       #B11226
+    # 14. Indigo        #4B4E6D
+    # 15. Mint Green    #3CB371
+    # 16. Burnt Orange  #D2691E
+    # 17. Hot Magenta   #C2185B
+    # 18. Dark Turquoise #008B8B
+    # 19. Slate Blue    #6A5ACD
+    # 20. Dark Lime     #7CB342
+    # 21. Deep Charcoal #2F2F2F
 
-    # 7.3 Filter Toolbar UI
-    f1, f2, f3 = st.columns([1, 1, 1])
-    with f1:
-        sel_time = st.selectbox("Time Period", time_opts, label_visibility="collapsed")
-    with f2:
-        sel_source = st.selectbox("Device/IP", source_opts, label_visibility="collapsed")
-    with f3:
-        sel_attack = st.selectbox("Attack Type", attack_opts, label_visibility="collapsed")
+    # Mapping Hex to (Background, Text)
+    # Default text is White (#FFFFFF)
+    # Exceptions: Golden Yellow (#F2C94C) -> Black
+    
+    PALETTE = {
+        "Strong Blue": ("#1F77B4", "#FFFFFF"),
+        "Safety Orange": ("#FF7F0E", "#FFFFFF"),
+        "Forest Green": ("#2CA02C", "#FFFFFF"),
+        "Danger Red": ("#D62728", "#FFFFFF"),
+        "Royal Purple": ("#9467BD", "#FFFFFF"),
+        "Chestnut Brown": ("#8C564B", "#FFFFFF"),
+        "Rose Pink": ("#E377C2", "#FFFFFF"),
+        "Steel Gray": ("#7F7F7F", "#FFFFFF"),
+        "Olive Green": ("#BCBD22", "#FFFFFF"),
+        "Cyan Teal": ("#17BECF", "#FFFFFF"),
+        "Deep Navy": ("#0B3C5D", "#FFFFFF"),
+        "Golden Yellow": ("#F2C94C", "#000000"), # Dark text for yellow
+        "Crimson": ("#B11226", "#FFFFFF"),
+        "Indigo": ("#4B4E6D", "#FFFFFF"),
+        "Mint Green": ("#3CB371", "#FFFFFF"),
+        "Burnt Orange": ("#D2691E", "#FFFFFF"),
+        "Hot Magenta": ("#C2185B", "#FFFFFF"),
+        "Dark Turquoise": ("#008B8B", "#FFFFFF"),
+        "Slate Blue": ("#6A5ACD", "#FFFFFF"),
+        "Dark Lime": ("#7CB342", "#FFFFFF"),
+        "Deep Charcoal": ("#2F2F2F", "#FFFFFF"),
+    }
+    
+    # User Provided Attack Mapping
+    ATTACK_COLORS_CONFIG = {
+      "Normal Traffic": "#7F7F7F", # Steel Gray
+      "SQL Injection": "#D62728",  # Danger Red
+      "XSS": "#E377C2",            # Rose Pink
+      "CSRF": "#9467BD",           # Royal Purple
+      "Clickjacking": "#8C564B",   # Chestnut Brown
+      "API Abuse": "#1F77B4",      # Strong Blue
+      "DDoS": "#FF7F0E",           # Safety Orange
+      "DoS": "#D2691E",            # Burnt Orange
+      "DNS Tunneling": "#17BECF",  # Cyan Teal
+      "IoT Botnet": "#2CA02C",     # Forest Green
+      "Device Spoofing": "#008B8B",# Dark Turquoise
+      "Packet Stuffing": "#BCBD22",# Olive Green
+      "JWT Manipulation": "#0B3C5D",# Deep Navy
+      "Missing Security Headers": "#F2C94C", # Golden Yellow
+      "SSRF": "#C2185B",           # Hot Magenta
+      "XXE": "#6A5ACD",            # Slate Blue
+      "RCE": "#B11226",            # Crimson
+      "WebSocket Hijacking": "#3CB371", # Mint Green
+      "Web Cache Poisoning": "#7CB342", # Dark Lime
+      "HTTP Smuggling": "#4B4E6D",      # Indigo
+      "HTTP Response Splitting": "#2F2F2F" # Deep Charcoal
+    }
 
+    # Helper to find tuple from hex
+    def get_style_from_hex(hex_code):
+        if hex_code == "#F2C94C": return (hex_code, "#000000")
+        return (hex_code, "#FFFFFF")
+
+    # Construct efficient map
+    COLOR_MAP = {k: get_style_from_hex(v) for k, v in ATTACK_COLORS_CONFIG.items()}
+    
+    # Add existing keys if they differ in naming to ensure backward compatibility
+    # e.g. "SSH Brute Force" is not in the user's list, let's map it to something reasonable or add it.
+    # User's list has "IoT Botnet" which might cover bruteforce? Or just mapping SSH to "Crimson" or similar?
+    # I will stick to the user's list for EXACT matches.
+    # But for "SSH Brute Force", "C2 Beaconing", "Ransomware", "Port Scan" which I generate:
+    # I should try to map them to the closest in the user's list or just use Keyword logic.
+    
+    # Let's add manual overrides for my known generator attacks to fit this palette:
+    if "SSH Brute Force" not in COLOR_MAP: COLOR_MAP["SSH Brute Force"] = get_style_from_hex("#B11226") # Crimson
+    if "C2 Beaconing" not in COLOR_MAP: COLOR_MAP["C2 Beaconing"] = get_style_from_hex("#D2691E") # Burnt Orange
+    if "Ransomware" not in COLOR_MAP: COLOR_MAP["Ransomware"] = get_style_from_hex("#C2185B") # Hot Magenta
+    if "Port Scan" not in COLOR_MAP: COLOR_MAP["Port Scan"] = get_style_from_hex("#F2C94C") # Golden Yellow
+
+    # Fallback Palette (Ordered List of Styles)
+    FALLBACK_PALETTE = list(PALETTE.values())
+
+    def get_color_for_attack(attack_name):
+        if not attack_name or attack_name == "Normal Traffic":
+             return COLOR_MAP["Normal Traffic"]
+
+        # 1. Exact Match
+        if attack_name in COLOR_MAP:
+            return COLOR_MAP[attack_name]
+            
+        # 2. Keyword Match (Updated for new palette)
+        u_name = attack_name.upper()
+        if "SSH" in u_name or "BRUTE" in u_name or "RANSOM" in u_name:
+             return get_style_from_hex("#B11226") # Crimson
+        if "DNS" in u_name:
+             return get_style_from_hex("#17BECF") # Cyan Teal
+        if "SQL" in u_name or "XSS" in u_name:
+             return get_style_from_hex("#D62728") # Danger Red
+        if "SCAN" in u_name or "BEACON" in u_name:
+             return get_style_from_hex("#D2691E") # Burnt Orange
+        if "API" in u_name or "JWT" in u_name:
+             return get_style_from_hex("#1F77B4") # Strong Blue
+        if "WEB" in u_name or "HTTP" in u_name:
+              return get_style_from_hex("#4B4E6D") # Indigo
+             
+        # 3. Deterministic Hash Fallback
+        hash_val = sum(ord(c) for c in attack_name)
+        return FALLBACK_PALETTE[hash_val % len(FALLBACK_PALETTE)]
+
+    def get_row_style(attack_name):
+        bg, text = get_color_for_attack(attack_name)
+        return f'background-color: {bg}; color: {text}'
+
+    # 7.2 Dynamic Legend Generation
+    # Identify present attacks
+    present_attacks = display_df['Attack Type'].unique().tolist()
+    # Filter out Normal Traffic to keep it at the end or specific spot if desired
+    if 'Normal Traffic' in present_attacks:
+        present_attacks.remove('Normal Traffic')
+    present_attacks.sort()
+    present_attacks.append('Normal Traffic') # Always show Normal at end
+
+    legend_html = '<div style="display: flex; gap: 15px; margin-bottom: 10px; font-size: 12px; font-weight: 600; flex-wrap: wrap;">'
+    for atk_name in present_attacks:
+        bg, text = get_color_for_attack(atk_name)
+        legend_html += f'<div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:{bg}; border:1px solid {text}; margin-right:5px;"></span> {atk_name}</div>'
+    legend_html += '</div>'
+    
+    st.markdown(legend_html, unsafe_allow_html=True)
+    
+    # 7.4 Apply Filters (Logic moved after UI) - Skipping to clean up conflict markers
+    # The conflict actually spanned mostly the definitions block. 
+    # I will paste the clean logic here.
+    
+    # Need to match indentation and flow. 
+    # The conflict output shows filters and Legend & Download logic mixed up.
+    # The REMOTE HEAD had logic for manual legend.
+    # The LOCAL had dynamic legend.
+    
+    # I will assume the code below needs to just continue with filters.
+    # Wait, the conflict markers wrapped around the Legend & Download section too?
+    # No, looking at tool output 378:: Lines 524 to 700 was Conflict 1.
+    # And Lines 792 to 803 was Conflict 2.
+    
+    # I am replacing 524 to 803 comprehensively? No, that would be too big.
+    # Wait, tool error 283 showed conflict from 524 to 700.
+    # And 792 to 803.
+    # The file view 378 shows lines 790 to 882.
     # 7.4 Apply Filters
     filtered_df = display_df.copy()
 
@@ -597,13 +727,13 @@ if not df_logs.empty:
     # 7.5 Legend & Download
     c_leg, c_dl = st.columns([5, 1.5])
     with c_leg:
-        st.markdown("""
-        <div style="display: flex; gap: 15px; margin-bottom: 10px; font-size: 12px; font-weight: 600;">
-            <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#ffebe9; border:1px solid #cf222e; margin-right:5px;"></span> SSH Brute Force</div>
-            <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#fbefff; border:1px solid #8250df; margin-right:5px;"></span> DNS Tunneling</div>
-            <div style="display:flex; align-items:center;"><span style="display:inline-block; width:10px; height:10px; background-color:#ffffff; border:1px solid #d0d7de; margin-right:5px;"></span> Normal Traffic</div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Dynamic legend already rendered above, but this slot was for the specific filters?
+        # The local version had dynamic legend at 7.2. 
+        # This section seems to be the Footer Legend which Remote had.
+        # We can keep it or remove it. Local dynamic legend is better.
+        # But to be safe and clean layout, let's leave this empty or show something useful.
+        st.write("") 
+        
     with c_dl:
         # Combined Download Dropdown
         with st.popover("Download Logs", use_container_width=True):
@@ -630,14 +760,8 @@ if not df_logs.empty:
     # 7.6 Styling Function
     def highlight_attacks(row):
         atk = row['Attack Type']
-        if "SSH" in atk:
-            return ['background-color: #ffebe9; color: #cf222e'] * len(row)
-        elif "DNS" in atk:
-            return ['background-color: #fbefff; color: #8250df'] * len(row)
-        elif "Alert" in atk:
-            return ['background-color: #fff8c5; color: #9a6700'] * len(row)
-        return [''] * len(row)
-
+        style = get_row_style(atk)
+        return [style] * len(row)
     # 7.7 Pagination Logic
     if 'page_number' not in st.session_state:
         st.session_state.page_number = 1

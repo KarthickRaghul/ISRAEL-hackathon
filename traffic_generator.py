@@ -184,6 +184,22 @@ class TrafficGenerator:
                     all_logs.extend(beacon_logs[:counts['beacon']])
                 else:
                     all_logs.extend(beacon_logs)
+
+            if counts.get('api_abuse', 0) > 0:
+                print(f"[-] Injecting {counts['api_abuse']} API Abuse events...")
+                api_logs = self.attacker.generate_api_abuse(start_time, duration)
+                if len(api_logs) > counts['api_abuse']:
+                    all_logs.extend(api_logs[:counts['api_abuse']])
+                else:
+                    all_logs.extend(api_logs)
+
+            if counts.get('clickjacking', 0) > 0:
+                print(f"[-] Injecting {counts['clickjacking']} Clickjacking events...")
+                cj_logs = self.attacker.generate_clickjacking(start_time, duration)
+                if len(cj_logs) > counts['clickjacking']:
+                    all_logs.extend(cj_logs[:counts['clickjacking']])
+                else:
+                    all_logs.extend(cj_logs)
         else:
             # BULK MODE (Default)
             all_logs.extend(self.generate_baseline(start_time, duration))
@@ -191,6 +207,8 @@ class TrafficGenerator:
             all_logs.extend(self.attacker.generate_iot_bruteforce(start_time, duration))
             all_logs.extend(self.attacker.generate_dns_tunneling(start_time, duration))
             all_logs.extend(self.attacker.generate_beaconing(start_time, duration))
+            all_logs.extend(self.attacker.generate_api_abuse(start_time, duration))
+            all_logs.extend(self.attacker.generate_clickjacking(start_time, duration))
         
         # 3. Sort by timestamp
         all_logs.sort(key=lambda x: x["timestamp"])
@@ -211,6 +229,8 @@ if __name__ == "__main__":
     parser.add_argument("--ssh", type=int, default=0, help="Number of SSH attack logs to generate")
     parser.add_argument("--dns", type=int, default=0, help="Number of DNS attack logs to generate")
     parser.add_argument("--beacon", type=int, default=0, help="Number of Beacon logs to generate")
+    parser.add_argument("--api_abuse", type=int, default=0, help="Number of API Abuse logs to generate")
+    parser.add_argument("--clickjacking", type=int, default=0, help="Number of Clickjacking logs to generate")
     parser.add_argument("--categories", nargs="+", help="List of device categories (e.g. Router Printer)")
     parser.add_argument("--domain", type=str, help="Specific Log Style Domain (e.g., Auth, Endpoint)")
     parser.add_argument("--patterns", type=str, help="Comma separated list of pattern names")
@@ -309,12 +329,14 @@ if __name__ == "__main__":
 
     # Legacy / Granular Mode (if no domain specified)
     # If any specific counts are provided, use granular mode
-    if args.baseline or args.ssh or args.dns or args.beacon:
+    if args.baseline or args.ssh or args.dns or args.beacon or args.api_abuse or args.clickjacking:
         granular_counts = {
             "baseline": args.baseline,
             "ssh": args.ssh,
             "dns": args.dns,
-            "beacon": args.beacon
+            "beacon": args.beacon,
+            "api_abuse": args.api_abuse,
+            "clickjacking": args.clickjacking
         }
         gen.run(granular_counts, device_categories=args.categories)
     else:

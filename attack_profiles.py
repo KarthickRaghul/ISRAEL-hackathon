@@ -16,6 +16,8 @@ class AttackSimulator:
         self.iot_config = config["attacks"]["iot_bruteforce"]
         self.dns_config = config["attacks"]["dns_tunneling"]
         self.beacon_config = config["attacks"]["beaconing"]
+        self.api_abuse_config = config["attacks"].get("api_abuse", {"enabled": False})
+        self.clickjacking_config = config["attacks"].get("clickjacking", {"enabled": False})
         
         self.external_cidrs = [ipaddress.IPv4Network(cidr) for cidr in config["network"]["external_cidrs"]]
         self.internal_cidrs = [ipaddress.IPv4Network(cidr) for cidr in config["network"]["internal_cidrs"]]
@@ -93,7 +95,8 @@ class AttackSimulator:
                 "device_type": "iot_camera",
                 "level": "notice",
                 "logid": "0000000013",
-                "msg": "SSH connection established"
+                "msg": "SSH connection established",
+                "alert_name": "SSH Brute Force"
             }
             logs.append(log)
             
@@ -147,7 +150,8 @@ class AttackSimulator:
                 "device_type": "Windows PC",
                 "level": "notice",
                 "logid": "0000000013",
-                "qname": fqdn
+                "qname": fqdn,
+                "alert_name": "DNS Tunneling"
             }
             logs.append(log)
             
@@ -197,7 +201,118 @@ class AttackSimulator:
                 "user": "SYSTEM",
                 "device_type": "srv-db-01",
                 "level": "notice",
-                "logid": "0000000013"
+                "logid": "0000000013",
+                "alert_name": "C2 Beaconing"
+            }
+            logs.append(log)
+            
+        return logs
+
+    def generate_api_abuse(self, start_time: datetime, duration_hours: int, src_ip_override: str = None) -> List[Dict[str, Any]]:
+        if not self.api_abuse_config.get("enabled", False):
+            return []
+            
+        logs = []
+        endpoints = self.api_abuse_config.get("target_endpoints", ["/api/v1/data"])
+        rate = self.api_abuse_config.get("requests_per_minute", 20)
+        
+        # Attacker is external or compromised internal? Usually external for public API or compromised credential
+        src_ip = "203.0.113.45" 
+        if src_ip_override:
+            src_ip = src_ip_override
+            
+        target_ip = "192.168.1.10" # Internal API Gateway
+        
+        total_requests = int(duration_hours * 60 * rate)
+        current_time = start_time
+        
+        for _ in range(total_requests):
+            current_time += timedelta(seconds=60/rate + random.uniform(-0.5, 0.5))
+            
+            endpoint = random.choice(endpoints)
+            status = random.choices([200, 401, 403, 429], weights=[10, 40, 40, 10], k=1)[0]
+            
+            log = {
+                "timestamp": current_time,
+                "srcip": src_ip,
+                "dstip": target_ip,
+                "srcport": random.randint(10000, 65000), 
+                "dstport": 443,
+                "proto": 6,
+                "service": "HTTPS",
+                "action": "deny" if status in [401, 403] else "accept",
+                "policyid": 2,
+                "sentbyte": random.randint(200, 500),
+                "rcvdbyte": random.randint(100, 300),
+                "duration": random.randint(0, 1),
+                "user": "unknown",
+                "device_type": "firewall",
+                "level": "warning",
+                "logid": "0000000014",
+                "url": endpoint,
+                "status_code": status,
+                "http_method": "GET",
+                "msg": f"API Abuse Detection: Excessive requests to {endpoint}",
+                "alert_name": "API Abuse"
+            }
+            logs.append(log)
+            
+        return logs
+
+    def generate_clickjacking(self, start_time: datetime, duration_hours: int, src_ip_override: str = None) -> List[Dict[str, Any]]:
+        if not self.clickjacking_config.get("enabled", False):
+            return []
+            
+        logs = []
+        target_url = self.clickjacking_config.get("target_url", "http://example.com")
+        referers = self.clickjacking_config.get("suspicious_referers", ["http://bad-site.com"])
+        
+        # Victim internal IP accessing compromised site OR External attacker loading iframe?
+        # Usually internal user visiting bad site which loads internal site in iframe.
+        # So SrcIP = Internal User, DstIP = Internal Site (via bad referrer) or External Site?
+        # Let's say WAF sees request to Target URL with Bad Referer.
+        
+        if self.use_dataset:
+             devices = self.loader.get_devices()
+             src_ip = random.choice(devices) if devices else "192.168.1.50"
+        else:
+             src_ip = "192.168.1.50" # Victim User
+             
+        if src_ip_override:
+            src_ip = src_ip_override
+            
+        dst_ip = "192.168.1.200" # Internal Web Server
+        
+        # A few events
+        count = random.randint(1, 5)
+        current_time = start_time
+        
+        for _ in range(count):
+            current_time += timedelta(minutes=random.randint(1, 60))
+            ref = random.choice(referers)
+            
+            log = {
+                "timestamp": current_time,
+                "srcip": src_ip,
+                "dstip": dst_ip,
+                "srcport": random.randint(10000, 65000), 
+                "dstport": 80,
+                "proto": 6,
+                "service": "HTTP",
+                "action": "deny", # Blocked by WAF/X-Frame-Options
+                "policyid": 3,
+                "sentbyte": random.randint(300, 600),
+                "rcvdbyte": 0,
+                "duration": 0,
+                "user": "user-victim",
+                "device_type": "workstation",
+                "level": "alert",
+                "logid": "0000000015",
+                "url": target_url,
+                "status_code": 403,
+                "http_method": "GET",
+                "msg": f"Clickjacking Attempt Blocked: Referer {ref} not allowed",
+                "alert_name": "Clickjacking"
             }
             logs.append(log)
             
