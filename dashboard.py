@@ -688,15 +688,33 @@ if not df_logs.empty:
     # The REMOTE HEAD had logic for manual legend.
     # The LOCAL had dynamic legend.
     
-    # I will assume the code below needs to just continue with filters.
-    # Wait, the conflict markers wrapped around the Legend & Download section too?
-    # No, looking at tool output 378:: Lines 524 to 700 was Conflict 1.
-    # And Lines 792 to 803 was Conflict 2.
+    display_df['Attack Type'] = display_df.apply(get_attack_type, axis=1)
+
+    # 7.2 Dynamic Filter Lists
+    # Time Period
+    time_opts = ["Last 1 hour", "Last 24 hours", "All Time"]
     
-    # I am replacing 524 to 803 comprehensively? No, that would be too big.
-    # Wait, tool error 283 showed conflict from 524 to 700.
-    # And 792 to 803.
-    # The file view 378 shows lines 790 to 882.
+    # Device/IP (Source)
+    # Combine src_ip and host if available
+    sources = set()
+    if 'src_ip' in display_df.columns:
+        sources.update(display_df['src_ip'].dropna().unique())
+    if 'host' in display_df.columns:
+        sources.update(display_df['host'].dropna().unique())
+    source_opts = ["All Devices"] + sorted(list(sources))
+
+    # Attack Type
+    attack_opts = ["All Attacks"] + sorted(display_df['Attack Type'].unique().tolist())
+
+    # 7.3 Filter Toolbar UI
+    f1, f2, f3 = st.columns([1, 1, 1])
+    with f1:
+        sel_time = st.selectbox("Time Period", time_opts, label_visibility="collapsed")
+    with f2:
+        sel_source = st.selectbox("Device/IP", source_opts, label_visibility="collapsed")
+    with f3:
+        sel_attack = st.selectbox("Attack Type", attack_opts, label_visibility="collapsed")
+
     # 7.4 Apply Filters
     filtered_df = display_df.copy()
 
