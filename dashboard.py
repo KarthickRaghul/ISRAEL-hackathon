@@ -584,7 +584,7 @@ if not df_logs.empty:
     
     # User Provided Attack Mapping
     ATTACK_COLORS_CONFIG = {
-      "Normal Traffic": "#7F7F7F", # Steel Gray
+      "Normal Traffic": "#FFFFFF", # White
       "SQL Injection": "#D62728",  # Danger Red
       "XSS": "#E377C2",            # Rose Pink
       "CSRF": "#9467BD",           # Royal Purple
@@ -609,7 +609,8 @@ if not df_logs.empty:
 
     # Helper to find tuple from hex
     def get_style_from_hex(hex_code):
-        if hex_code == "#F2C94C": return (hex_code, "#000000")
+        if hex_code == "#F2C94C": return (hex_code, "#000000") # Golden Yellow -> Black Text
+        if hex_code == "#FFFFFF": return (hex_code, "#000000") # White -> Black Text
         return (hex_code, "#FFFFFF")
 
     # Construct efficient map
