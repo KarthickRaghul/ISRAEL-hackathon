@@ -688,7 +688,7 @@ if not df_logs.empty:
     # The REMOTE HEAD had logic for manual legend.
     # The LOCAL had dynamic legend.
     
-    display_df['Attack Type'] = display_df.apply(get_attack_type, axis=1)
+
 
     # 7.2 Dynamic Filter Lists
     # Time Period
